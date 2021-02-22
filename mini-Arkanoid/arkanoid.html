@@ -1,0 +1,1908 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <style>
+        body {
+            margin: 0;
+        }
+
+        #canvas {
+            display: block;
+            margin: 20px auto;
+            border: 1px solid   black;
+            background-color: rgb(24, 119, 119);
+        }
+    </style>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arkanoid</title>
+</head>
+<body>
+    <canvas id="canvas" width="400" height="400"></canvas>
+
+    <script>
+        const canvas = document.querySelector('canvas')
+        const ctx    = canvas.getContext('2d')
+        const width  = canvas.width
+        const height = canvas.height
+        
+        const gameOverAudio = new Audio('audio/gameOver.mp3')
+        const knock = new Audio('audio/knock.mp3')
+
+        let score = 0
+
+        const blockSize = 10
+        const widthSize = width / blockSize
+        const heightSize = height / blockSize
+
+        function circle(centerX, centerY) {
+            ctx.beginPath()
+            ctx.arc(centerX, centerY, blockSize / 2, 0, Math.PI * 2, false)
+        }
+
+        function drawScore() {
+            ctx.font = '20px Arial'
+            ctx.fillStyle = 'white'
+            ctx.textAlign = 'left'
+            ctx.textBaseline = 'top'
+            ctx.fillText('Score: ' + score, blockSize, blockSize)
+            ctx.fill()
+        }
+
+        function gameOver() {
+            clearInterval(setIntervalId)
+            gameOverAudio.play()
+            ctx.font = '50px Arial'
+            ctx.fillStyle = 'white'
+            ctx.textAlign = 'center'
+            ctx.fillText('Game Over', width / 2, height / 2)
+            ctx.fill()
+        }
+
+        function youWin() {
+            clearInterval(setIntervalId)
+            ctx.font = '50px Arial'
+            ctx.fillStyle = 'white'
+            ctx.textAlign = 'center'
+            ctx.fillText('You Win', width / 2, height / 2)
+            ctx.fill()
+        }
+
+        class Block {
+            constructor(col, row) {
+                this.col = col
+                this.row = row
+            }
+
+            drawSquare(color) {
+                ctx.fillStyle = color
+                ctx.fillRect(this.col * blockSize, this.row * blockSize, blockSize, blockSize)
+                //      
+            }
+
+            drawCircle(color) {
+                ctx.fillStyle = color
+                circle(this.col * blockSize + blockSize / 2, this.row * blockSize + blockSize / 2) 
+            }
+            equal(otherBlock) {
+                return this.col === otherBlock.col && this.row === otherBlock.row
+            }
+        }
+
+        let block = new Block()
+
+        class Platform {
+            constructor() {
+                this.platformBody = [
+                    new Block(18, 39),
+                    new Block(19, 39),
+                    new Block(20, 39),
+                    new Block(21, 39),
+                    new Block(22, 39)
+                ]
+                this.direction = ''
+                this.nextDirection = ''
+            }
+
+            drawPlatform() {
+                for (let i = 0; i < this.platformBody.length; i++) {
+                    this.platformBody[i].drawSquare('yellow')
+                }
+            }
+
+            platformMove() {
+                let leftPlatform = this.platformBody[0]
+                let rightPlatform = this.platformBody[4]
+                let newPlatform
+
+                platform.checkCollision(rightPlatform, leftPlatform)
+
+                this.direction = this.nextDirection
+
+                if (this.direction === 'right') {
+                    let newPlatform = new Block(leftPlatform.col - 1, leftPlatform.row)
+
+                    this.platformBody.unshift(newPlatform)
+                    this.platformBody.pop()
+                } else if (this.direction === 'left') {
+                    let newPlatform = new Block(rightPlatform.col + 1, rightPlatform.row)
+
+                    this.platformBody.push(newPlatform)
+                    this.platformBody.shift()
+                }
+
+            }
+
+            checkCollision(rightPlatform, leftPlatform) {
+                if ( rightPlatform.col > widthSize - 2 ) {
+                    this.nextDirection = 'right' 
+                } else if ( leftPlatform.col <= 0 ) {
+                    this.nextDirection = 'left' 
+                }
+            }
+        } 
+
+        class Ball {
+            constructor() {
+                this.ballPosition = new Block(21, 38)
+
+                this.ballDirectionCol = 'right'
+                this.ballDirectionRow = 'up'
+                this.throwTheBall = 'false'
+
+
+            }
+
+            drawBall() {
+                this.ballPosition.drawCircle('white')
+            }
+
+            moveBall() {
+                let newBall
+
+                if (this.throwTheBall === 'start') {
+                    if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                        newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+                    } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                        newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+                    } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                        newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                    } else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                        newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+                    }
+
+                    ball.checkCollision()
+
+                    this.ballPosition =  ball.checkCollisionTarget(newBall) || ball.checkCollisionPlatform(newBall) || newBall 
+                } else {
+                    this.ballPosition = new Block(platform.platformBody[2].col, platform.platformBody[2].row - 1)
+                }
+
+                if (this.ballPosition.row > 39) {
+                    gameOver()
+                } 
+                if (score === 42) {
+                    youWin()
+                } 
+
+            }    
+
+            checkCollision() {
+                if (this.ballPosition.col > widthSize - 3) {
+                    knock.play()
+                    this.ballDirectionCol = 'left'
+                } else if (this.ballPosition.row > heightSize) {
+                    knock.play()
+                    this.ballDirectionRow = 'up'    
+                } else if (this.ballPosition.col < 0 + 2) {
+                    knock.play()
+                    this.ballDirectionCol = 'right'
+                } else if (this.ballPosition.row < 0 + 2) {
+                    knock.play()
+                    this.ballDirectionRow = 'down'
+                }
+            }
+
+            checkCollisionPlatform(newBall) {
+                for (let i = 0; i < platform.platformBody.length; i++) {
+                    platform.platformBody[i].row + 5
+
+                    if (this.ballPosition.equal(platform.platformBody[i])) {
+
+                        if (this.ballDirectionCol === 'right') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        } else if (this.ballDirectionCol === 'left') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+                    }
+                }
+            }
+
+
+            checkCollisionTarget(newBall) {
+                
+                for (let i = 0; i < targetPlatform.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform.targetPlatformBody[i])) {
+                        targetPlatform.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform2.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform2.targetPlatformBody[i])) {
+                        targetPlatform2.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform3.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform3.targetPlatformBody[i])) {
+                        targetPlatform3.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform4.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform4.targetPlatformBody[i])) {
+                        targetPlatform4.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform5.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform5.targetPlatformBody[i])) {
+                        targetPlatform5.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform6.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform6.targetPlatformBody[i])) {
+                        targetPlatform6.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform7.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform7.targetPlatformBody[i])) {
+                        targetPlatform7.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform8.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform8.targetPlatformBody[i])) {
+                        targetPlatform8.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+                
+                for (let i = 0; i < targetPlatform9.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform9.targetPlatformBody[i])) {
+                        targetPlatform9.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+                
+                for (let i = 0; i < targetPlatform10.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform10.targetPlatformBody[i])) {
+                        targetPlatform10.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+                
+                for (let i = 0; i < targetPlatform11.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform11.targetPlatformBody[i])) {
+                        targetPlatform11.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+                
+                for (let i = 0; i < targetPlatform12.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform12.targetPlatformBody[i])) {
+                        targetPlatform12.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform13.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform13.targetPlatformBody[i])) {
+                        targetPlatform13.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform14.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform14.targetPlatformBody[i])) {
+                        targetPlatform14.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform15.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform15.targetPlatformBody[i])) {
+                        targetPlatform15.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+                
+                for (let i = 0; i < targetPlatform16.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform16.targetPlatformBody[i])) {
+                        targetPlatform16.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform17.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform17.targetPlatformBody[i])) {
+                        targetPlatform17.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform18.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform18.targetPlatformBody[i])) {
+                        targetPlatform18.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform19.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform19.targetPlatformBody[i])) {
+                        targetPlatform19.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform20.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform20.targetPlatformBody[i])) {
+                        targetPlatform20.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform21.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform21.targetPlatformBody[i])) {
+                        targetPlatform21.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+           
+                for (let i = 0; i < targetPlatform22.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform22.targetPlatformBody[i])) {
+                        targetPlatform22.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+           
+                for (let i = 0; i < targetPlatform23.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform23.targetPlatformBody[i])) {
+                        targetPlatform23.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform24.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform24.targetPlatformBody[i])) {
+                        targetPlatform24.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform25.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform25.targetPlatformBody[i])) {
+                        targetPlatform25.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform26.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform26.targetPlatformBody[i])) {
+                        targetPlatform26.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform27.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform27.targetPlatformBody[i])) {
+                        targetPlatform27.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform28.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform28.targetPlatformBody[i])) {
+                        targetPlatform28.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+          
+                for (let i = 0; i < targetPlatform29.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform29.targetPlatformBody[i])) {
+                        targetPlatform29.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+          
+                for (let i = 0; i < targetPlatform30.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform30.targetPlatformBody[i])) {
+                        targetPlatform30.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform31.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform31.targetPlatformBody[i])) {
+                        targetPlatform31.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform32.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform32.targetPlatformBody[i])) {
+                        targetPlatform32.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+                
+                for (let i = 0; i < targetPlatform33.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform33.targetPlatformBody[i])) {
+                        targetPlatform33.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+           
+                for (let i = 0; i < targetPlatform34.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform34.targetPlatformBody[i])) {
+                        targetPlatform34.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+           
+                for (let i = 0; i < targetPlatform35.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform35.targetPlatformBody[i])) {
+                        targetPlatform35.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform36.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform36.targetPlatformBody[i])) {
+                        targetPlatform36.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+                for (let i = 0; i < targetPlatform37.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform37.targetPlatformBody[i])) {
+                        targetPlatform37.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform38.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform38.targetPlatformBody[i])) {
+                        targetPlatform38.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform39.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform39.targetPlatformBody[i])) {
+                        targetPlatform39.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform40.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform40.targetPlatformBody[i])) {
+                        targetPlatform40.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+
+                for (let i = 0; i < targetPlatform41.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform41.targetPlatformBody[i])) {
+                        targetPlatform41.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+                
+                for (let i = 0; i < targetPlatform42.targetPlatformBody.length; i++) {
+                    // targetPlatform.targetPlatformBody[i].row + 5
+                    if (this.ballPosition.equal(targetPlatform42.targetPlatformBody[i])) {
+                        targetPlatform42.collision = 'true'
+
+                        if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'up'
+
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row - 1)
+
+
+                        }  else if (this.ballDirectionCol === 'right' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'right'
+                            this.ballDirectionRow = 'down'
+                            
+
+                            return newBall = new Block(this.ballPosition.col + 1, this.ballPosition.row + 1)
+
+                        }   else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'up') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'down'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row + 1)
+
+                        } else if (this.ballDirectionCol === 'left' && this.ballDirectionRow === 'down') {
+                            this.ballDirectionCol = 'left'
+                            this.ballDirectionRow = 'up'
+
+                            return newBall = new Block(this.ballPosition.col - 1, this.ballPosition.row - 1)
+                        }
+
+                    }
+                }
+            
+            }
+        } 
+
+        class TargetPlatform {
+            constructor(x, y) {
+                this.targetPlatformBody = [
+                    new Block(x, y),
+                    new Block((x + 1), y),
+                    new Block((x + 2), y),
+                    new Block((x + 3), y),
+
+                ]
+                this.collision = 'false'
+            }
+
+            drawPlatform() {
+
+                for (let i = 0; i < this.targetPlatformBody.length; i++) {
+                    this.targetPlatformBody[i].drawSquare('rgb(233, 73, 73)')    
+                }
+
+
+                if (this.collision === 'true') {
+                    this.collision = false
+                    this.targetPlatformBody.length = 0
+                    score++
+                }
+
+            }
+        }
+
+        let platform = new Platform()
+        let ball = new Ball()
+
+        let targetPlatform = new TargetPlatform(18, 15)
+        let targetPlatform2 = new TargetPlatform(13, 15)
+        let targetPlatform3 = new TargetPlatform(8, 15)
+        let targetPlatform4 = new TargetPlatform(23, 15)
+        let targetPlatform5 = new TargetPlatform(28, 15)
+        let targetPlatform6 = new TargetPlatform(33, 15)
+        let targetPlatform7 = new TargetPlatform(3, 15)
+
+        let targetPlatform8 = new TargetPlatform(3, 13)
+        let targetPlatform9 = new TargetPlatform(18, 13)
+        let targetPlatform10 = new TargetPlatform(13, 13)
+        let targetPlatform11 = new TargetPlatform(8, 13)
+        let targetPlatform12 = new TargetPlatform(23, 13)
+        let targetPlatform13 = new TargetPlatform(28, 13)
+        let targetPlatform14 = new TargetPlatform(33, 13)
+
+        let targetPlatform15 = new TargetPlatform(3, 11)
+        let targetPlatform16 = new TargetPlatform(18, 11)
+        let targetPlatform17 = new TargetPlatform(13, 11)
+        let targetPlatform18 = new TargetPlatform(8, 11)
+        let targetPlatform19 = new TargetPlatform(23, 11)
+        let targetPlatform20 = new TargetPlatform(28, 11)
+        let targetPlatform21 = new TargetPlatform(33, 11)
+
+        let targetPlatform22 = new TargetPlatform(3, 9)
+        let targetPlatform23 = new TargetPlatform(18, 9)
+        let targetPlatform24 = new TargetPlatform(13, 9)
+        let targetPlatform25 = new TargetPlatform(8, 9)
+        let targetPlatform26 = new TargetPlatform(23, 9)
+        let targetPlatform27 = new TargetPlatform(28, 9)
+        let targetPlatform28 = new TargetPlatform(33, 9)
+
+        let targetPlatform29 = new TargetPlatform(3, 7)
+        let targetPlatform30 = new TargetPlatform(18, 7)
+        let targetPlatform31 = new TargetPlatform(13, 7)
+        let targetPlatform32 = new TargetPlatform(8, 7)
+        let targetPlatform33 = new TargetPlatform(23, 7)
+        let targetPlatform34 = new TargetPlatform(28, 7)
+        let targetPlatform35 = new TargetPlatform(33, 7)
+
+        let targetPlatform36 = new TargetPlatform(3, 5)
+        let targetPlatform37 = new TargetPlatform(18, 5)
+        let targetPlatform38 = new TargetPlatform(13, 5)
+        let targetPlatform39 = new TargetPlatform(8, 5)
+        let targetPlatform40 = new TargetPlatform(23, 5)
+        let targetPlatform41 = new TargetPlatform(28, 5)
+        let targetPlatform42 = new TargetPlatform(33, 5)
+
+
+        const setIntervalId = setInterval(() => {
+            ctx.clearRect(0, 0, width, height)
+            drawScore()
+            platform.platformMove()
+            platform.drawPlatform()
+            ball.moveBall()
+            ball.drawBall()
+
+            targetPlatform.drawPlatform()
+            targetPlatform2.drawPlatform()
+            targetPlatform3.drawPlatform()
+            targetPlatform4.drawPlatform()
+            targetPlatform5.drawPlatform()
+            targetPlatform6.drawPlatform()
+            targetPlatform7.drawPlatform()
+            targetPlatform8.drawPlatform()
+
+            targetPlatform9.drawPlatform()
+            targetPlatform10.drawPlatform()
+            targetPlatform11.drawPlatform()
+            targetPlatform12.drawPlatform()
+            targetPlatform13.drawPlatform()
+            targetPlatform14.drawPlatform()
+
+            targetPlatform15.drawPlatform()
+            targetPlatform16.drawPlatform()
+            targetPlatform17.drawPlatform()
+            targetPlatform18.drawPlatform()
+            targetPlatform19.drawPlatform()
+            targetPlatform20.drawPlatform()
+            targetPlatform21.drawPlatform()
+
+            targetPlatform22.drawPlatform()
+            targetPlatform23.drawPlatform()
+            targetPlatform24.drawPlatform()
+            targetPlatform25.drawPlatform()
+            targetPlatform26.drawPlatform()
+            targetPlatform27.drawPlatform()
+            targetPlatform28.drawPlatform()
+
+            targetPlatform29.drawPlatform()
+            targetPlatform30.drawPlatform()
+            targetPlatform31.drawPlatform()
+            targetPlatform32.drawPlatform()
+            targetPlatform33.drawPlatform()
+            targetPlatform34.drawPlatform()
+            targetPlatform35.drawPlatform()
+
+            targetPlatform36.drawPlatform()
+            targetPlatform37.drawPlatform()
+            targetPlatform38.drawPlatform()
+            targetPlatform39.drawPlatform()
+            targetPlatform40.drawPlatform()
+            targetPlatform41.drawPlatform()
+            targetPlatform42.drawPlatform()
+
+
+        }, 50)
+
+        const direction = {
+            37: 'right',
+            39: 'left',
+        }
+
+        const throwBall = {
+            32: 'start'
+        }
+
+        window.addEventListener('keydown', (event) => {
+            platform.nextDirection = direction[event.keyCode]
+            if (throwBall[event.keyCode] == 'start') {
+                ball.throwTheBall = throwBall[event.keyCode]
+            }
+
+        })
+
+        window.addEventListener('keyup', (event) => {
+            platform.nextDirection = ''
+        })
+
+    </script>
+</body>
+</html>
